@@ -1,0 +1,72 @@
+project: ai_proy_final
+initialized: 2026-05-24
+sdd_mode: hybrid
+
+context: |
+  Python Jupyter notebook project: Texas Hold'em poker AI comparison.
+  Single notebook: poker_ia_comparativa_final.ipynb.
+  Implements Minimax (alpha-beta + world sampling), Bayesian network (pgmpy),
+  Markov chains (Bellman value function), TD/Q-Learning, Ensemble (weighted vote).
+  Stack: Python 3.12 (dev ran on 3.12.8), treys, pgmpy, numpy, pandas,
+  matplotlib, seaborn, tqdm. Runtime env (this machine): Python 3.14 — deps
+  not installed globally; virtual env or conda env required to run.
+  Known concerns: simulator simplification (2 actions/street max, no re-raises),
+  questionable ROI metric formula, Markov env-favored result (88% WR vs Random),
+  TD learned only 119 Q-states (very sparse), Ensemble is slow (250 ms+/decision).
+
+strict_tdd: false
+
+testing:
+  runner:
+    available: true
+    command: pytest
+    version: "9.0.3"
+    framework: pytest
+  layers:
+    unit:
+      available: false
+      tool: "—"
+      note: "No test files exist yet. All logic is inline in the notebook."
+    integration:
+      available: false
+      tool: "—"
+    e2e:
+      available: false
+      tool: "—"
+    notebook:
+      available: true
+      tool: "jupyter nbconvert --to notebook --execute"
+      note: "nbval/nbmake not installed; manual nbconvert execute is the baseline."
+  coverage:
+    available: false
+    command: "—"
+    note: "No source modules to cover yet."
+  quality:
+    linter:
+      available: false
+      command: "—"
+    type_checker:
+      available: false
+      command: "—"
+    formatter:
+      available: false
+      command: "—"
+
+phase_rules:
+  proposal:
+    requires: context, user_goal
+  spec:
+    requires: proposal
+  design:
+    requires: spec
+  tasks:
+    requires: design
+  apply:
+    requires: tasks
+    strict_tdd: false
+    note: "Notebook-first project; strict TDD not applicable until code is extracted to modules."
+  verify:
+    requires: apply
+    gate: notebook_executes_clean
+  archive:
+    requires: verify
