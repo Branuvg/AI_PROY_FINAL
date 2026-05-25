@@ -60,9 +60,19 @@ def test_notebook_imports_modular_backend() -> None:
     joined = "\n".join(_code_sources())
 
     assert "from poker_ai.evaluation import" in joined
+    assert "ExperimentConfig" in joined
     assert "run_report_experiment(" in joined
-    assert "POKER_REPORT_HANDS" in joined
-    assert "POKER_REPORT_SEEDS" in joined
+    assert "hands_per_seed=40" in joined
+    assert "seeds=(101, 202, 303)" in joined
+
+
+def test_notebook_final_run_does_not_require_environment_variables() -> None:
+    joined = "\n".join(_code_sources())
+
+    assert "config_from_env" not in joined
+    assert "os.environ" not in joined
+    assert "POKER_REPORT_HANDS" not in joined
+    assert "POKER_REPORT_SEEDS" not in joined
 
 
 def test_notebook_does_not_define_core_logic() -> None:
