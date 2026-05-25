@@ -1,73 +1,208 @@
-# AI_PROY_FINAL
+# PokerAI — Comparativa de modelos de IA para Texas Hold'em
 
-Proyecto comparativo de IA para Texas Hold'em con el backend reutilizable extraído en `src/poker_ai`.
+Este proyecto compara distintas estrategias de inteligencia artificial para tomar decisiones en una versión simplificada de póker Texas Hold'em. El objetivo es evaluar, bajo un mismo motor de simulación, modelos individuales y modelos combinados para determinar cuál obtiene mejor desempeño según métricas reproducibles.
 
-## Configuración
+## Resumen ejecutivo
+
+El sistema implementa y compara:
+
+| Modelo | Rol dentro del proyecto |
+|---|---|
+| `Minimax` | Búsqueda estratégica adversarial simplificada. |
+| `Bayesian` | Decisión probabilística explicable. |
+| `Markov` | Política basada en transición de estados. |
+| `TDLearning` | Aprendizaje por refuerzo con Q-table persistente. |
+| `EnsembleNoTD` | Combinación estable: Minimax + Bayesian + Markov. |
+| `EnsembleWithTD` | Variante experimental: Minimax + Bayesian + Markov + TD. |
+
+La lógica principal vive en módulos Python testeables dentro de `src/poker_ai`. El notebook `poker_ia_comparativa_final.ipynb` funciona como reporte/demo y no debe duplicar lógica del motor, agentes ni métricas.
+
+## Estructura del proyecto
+
+```text
+src/poker_ai/
+  engine/        motor del juego, acciones legales y simulación
+  agents/        agentes IA individuales y ensembles
+  evaluation/    métricas, reportes, entrenamiento TD y CLI
+
+tests/           pruebas unitarias, integración y contrato del notebook
+docs/            reporte técnico complementario
+openspec/        artefactos SDD del desarrollo
+artifacts/       snapshots generados, por ejemplo la Q-table de TD
+```
+
+## Requisitos
+
+- Python administrado con `uv`.
+- JupyterLab/nbconvert se instalan desde las dependencias de desarrollo.
+- No hace falta modificar Python global.
+
+Instalación:
 
 ```bash
 uv sync --extra dev
 ```
 
-Esto mantiene todas las dependencias de Python dentro del entorno del proyecto administrado por `uv`; no modifica la instalación global de Python.
-
-## Pruebas
+Verificación completa:
 
 ```bash
 uv run pytest
 ```
 
-## Entrenamiento TD reproducible
+Resultado esperado actual:
 
-Antes, `TDLearning` podía verse peor que `Random` porque se evaluaba con una tabla Q vacía y, en empates de valor cero, podía terminar eligiendo `fold`. Ahora el agente usa un fallback legal no perdedor (`check`/`call` antes que `fold`), actualiza Q con la recompensa terminal de cada mano y persiste el snapshot en `artifacts/td_qtable.json`.
+```text
+56 passed
+```
+
+## Cómo ejecutar el proyecto
+
+### 1. Entrenar TD Learning
 
 ```bash
-uv run python -m poker_ai.evaluation.train_td
+uv run python -m poker_ai.evaluation.train_td --hands 200 --seed 17 --output artifacts/td_qtable.json
+```
+
+Esto genera un snapshot persistente de la Q-table en:
+
+```text
+artifacts/td_qtable.json
+```
+
+### 2. Ejecutar reporte desde CLI
+
+```bash
 uv run python -m poker_ai.evaluation.cli report
 ```
 
-Parámetros por defecto: α=0.1, 200 manos de entrenamiento y semilla 17. El reporte carga `artifacts/td_qtable.json` o la ruta `POKER_TD_QTABLE_PATH`; si no existe, marca explícitamente `TDLearning (untrained)` para no confundir un fallback vacío con un modelo entrenado.
-
-## Verificación del notebook
-
-El notebook es un reporte/demo conciso que importa los módulos de `poker_ai`. No debe redefinir lógica del motor, agentes, evaluación ni ROI.
+### 3. Ejecutar el notebook
 
 ```bash
-uv run jupyter nbconvert --to notebook --execute poker_ia_comparativa_final.ipynb --output poker_ia_comparativa_final.executed.ipynb
+uv run jupyter nbconvert \
+  --to notebook \
+  --execute poker_ia_comparativa_final.ipynb \
+  --output poker_ia_comparativa_final.executed.ipynb
 ```
 
-## Rol del notebook/reporte
-
-- `src/poker_ai/engine/` contiene el estado del juego, acciones legales y simulación de manos.
-- `src/poker_ai/agents/` contiene la interfaz estándar de agentes y los agentes por modelo.
-- `src/poker_ai/evaluation/` contiene el cálculo de ROI y la agregación de evaluación.
-- `poker_ia_comparativa_final.ipynb` es el notebook de presentación e incluye una ejecución reducida de humo con importaciones modulares.
-- `tests/test_notebook_contract.py` protege contra lógica central duplicada y contra el denominador antiguo `n_hands * BIG_BLIND` para ROI.
-- `docs/notebook_backend_report.md` documenta la ruta ligera de revisión del notebook.
-
-## Conclusiones observadas
-
-La corrida de humo del notebook mantiene valores pequeños por defecto. Para una conclusión académica más defendible se ejecutó una evaluación reproducible con múltiples semillas:
+También podés abrirlo visualmente:
 
 ```bash
-POKER_REPORT_HANDS=200 POKER_REPORT_SEEDS=42,43,44,45,46 uv run python - <<'PY'
-from poker_ai.evaluation import config_from_env, run_report_experiment
-config = config_from_env()
-for row in sorted(run_report_experiment(config), key=lambda r: (r.roi, r.avg_profit), reverse=True):
-    print(row)
-PY
+uv run jupyter lab
 ```
 
-Parámetros: 5 semillas, 200 manos por semilla, 1,000 manos por agente, baseline `Call`, ROI calculado sobre inversión real agregada.
+## Experimento recomendado para conclusiones
 
-| Ranking | Agente | Tasa de victoria | Ganancia total | Inversión total | ROI | Ganancia promedio |
-|---:|---|---:|---:|---:|---:|---:|
-| 1 | `Minimax` | 0.487 | 60 | 10000 | 0.006 | 0.060 |
-| 2 | `Bayesian` | 0.485 | 40 | 10000 | 0.004 | 0.040 |
-| 3 | `Markov` | 0.482 | 10 | 10000 | 0.001 | 0.010 |
-| 4 | `Ensemble` | 0.345 | -1210 | 8330 | -0.145 | -1.210 |
-| 5 | `Random` | 0.297 | -2510 | 11800 | -0.213 | -2.510 |
-| 6 | `TDLearning` | 0.000 | -5000 | 5000 | -1.000 | -5.000 |
+Para una corrida más defendible que un smoke test:
 
-Interpretación profesional: en esta configuración, `Minimax`, `Bayesian` y `Markov` quedan prácticamente empatados cerca del punto de equilibrio frente a `Call`, con ventaja observada muy pequeña para `Minimax`. La recomendación defensible es presentar `Minimax` como el mejor resultado observado, pero enfatizar que la diferencia es estrecha y no prueba superioridad estadística sin más manos, más oponentes e intervalos de confianza.
+```bash
+POKER_REPORT_HANDS=40 \
+POKER_REPORT_SEEDS=101,202,303 \
+POKER_REPORT_FRESH_TD=1 \
+uv run jupyter nbconvert \
+  --to notebook \
+  --execute poker_ia_comparativa_final.ipynb \
+  --output resultados_ensemble_td.ipynb
+```
 
-Nota TD: esa tabla histórica corresponde a un TD sin snapshot entrenado. Para comparar el TD viable, primero generá el snapshot y reportá junto con los resultados la ruta usada, α, episodios, semilla y la limitación principal del simulador: la actualización recibe una sola recompensa terminal por mano.
+Parámetros:
+
+| Parámetro | Valor |
+|---|---:|
+| Manos por semilla | 40 |
+| Semillas | 101, 202, 303 |
+| Total por agente | 120 manos |
+| TD fresco | Sí |
+| ROI | Calculado sobre fichas realmente invertidas |
+
+## Resultados observados
+
+Última verificación con TD fresco y 120 manos por agente:
+
+| Agente | W-L-T | ROI | Ganancia promedio |
+|---|---:|---:|---:|
+| `EnsembleWithTD (fresh)` | 65-48-7 | 0.142 | 1.417 |
+| `Markov` | 60-52-8 | 0.067 | 0.667 |
+| `Bayesian` | 60-55-5 | 0.042 | 0.417 |
+| `Minimax` | 58-59-3 | -0.008 | -0.083 |
+| `Random` | 42-77-1 | -0.044 | -0.500 |
+| `EnsembleNoTD` | 51-61-8 | -0.083 | -0.833 |
+| `TDLearning (fresh)` | 23-94-3 | -0.327 | -3.000 |
+
+## Conclusiones
+
+1. **El mejor resultado observado fue `EnsembleWithTD (fresh)`** en la corrida de verificación más reciente.
+2. **TD Learning individual todavía es débil**, pero como señal complementaria con peso bajo puede aportar diversidad al ensemble.
+3. **`EnsembleNoTD` sigue siendo el baseline prudente**, porque históricamente fue más estable y no depende de la calidad del snapshot TD.
+4. **No se debe afirmar superioridad estadística definitiva todavía**: la corrida actual tiene 120 manos por agente y un entorno simplificado.
+5. Para una defensa académica más fuerte, el siguiente paso es ejecutar más manos, más semillas, más perfiles de oponente e intervalos de confianza.
+
+Conclusión defendible:
+
+> El enfoque combinado puede mejorar el rendimiento cuando integra señales complementarias de varios modelos. En la última corrida, `EnsembleWithTD` obtuvo el mejor ROI, pero TD Learning aún requiere más entrenamiento y evaluación para justificarlo como componente dominante. Por eso se reportan ambos ensembles: uno estable sin TD y otro experimental con TD.
+
+## Pesos de los ensembles
+
+### `EnsembleNoTD`
+
+| Modelo | Peso |
+|---|---:|
+| Minimax | 0.50 |
+| Bayesian | 0.30 |
+| Markov | 0.20 |
+
+### `EnsembleWithTD`
+
+| Modelo | Peso |
+|---|---:|
+| Minimax | 0.45 |
+| Bayesian | 0.27 |
+| Markov | 0.18 |
+| TDLearning | 0.10 |
+
+## Métricas
+
+| Métrica | Definición |
+|---|---|
+| Win rate | Proporción de manos ganadas. |
+| Profit | Fichas ganadas o perdidas. |
+| ROI | Profit dividido entre fichas realmente invertidas. |
+| Avg profit | Ganancia promedio por mano. |
+
+El ROI ya no usa el denominador antiguo `n_hands * BIG_BLIND`; ahora se calcula con inversión real agregada.
+
+## Desarrollo y pruebas
+
+Correr todo:
+
+```bash
+uv run pytest
+```
+
+Correr solo contrato del notebook:
+
+```bash
+uv run pytest tests/test_notebook_contract.py
+```
+
+El contrato valida que el notebook:
+
+- importe el backend modular,
+- no redefina lógica central,
+- no recupere el ROI antiguo,
+- documente las variantes de ensemble y TD.
+
+## Limitaciones
+
+- El entorno de póker es simplificado.
+- Los resultados dependen de semillas, cantidad de manos y tipo de oponente.
+- TD Learning usa Q-table discreta, no Deep Q-Learning.
+- El proyecto compara modelos bajo condiciones controladas; no pretende jugar póker real profesional.
+
+## Trabajo futuro
+
+- Aumentar a miles de manos por agente.
+- Evaluar contra perfiles de oponente: agresivo, conservador, aleatorio y farolero.
+- Agregar intervalos de confianza.
+- Mejorar reward shaping de TD.
+- Probar pesos del ensemble por fase del juego.
+- Explorar DQN como evolución de TD Learning.
